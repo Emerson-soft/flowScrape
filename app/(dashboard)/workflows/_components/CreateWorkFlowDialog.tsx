@@ -2,8 +2,17 @@
 import CustomDialogHeader from '@/components/CustomDialogHeader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
-import { Layers2Icon } from 'lucide-react';
-import React, { useState } from 'react'
+import { createWorkFlowSchema, createWorkflowSchemaType } from '@/schema/workflow';
+import { Layers2Icon, Loader2 } from 'lucide-react';
+import React, { useCallback, useState } from 'react'
+import { useForm } from 'react-hook-form';
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useMutation } from '@tanstack/react-query';
+import { CreateWorkflow } from '@/actions/workflows/createWorkflow';
+import { toast } from 'sonner';
 
 type ICreateWorkFlowDialogProps = {
   triggerText?: string
@@ -11,7 +20,28 @@ type ICreateWorkFlowDialogProps = {
 
 function CreateWorkFlowDialog({ triggerText }: ICreateWorkFlowDialogProps) {
   const [open, setOpen] = useState(false);
-  return ( 
+
+  const form = useForm<createWorkflowSchemaType>({
+    resolver: zodResolver(createWorkFlowSchema),
+    defaultValues: {}
+  })
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: CreateWorkflow,
+    onSuccess: () => {
+      toast.success("Workflow created", { id: "create-workflow" })
+    },
+    onError: () => {
+      toast.error("Failed to create workflow", {id: "create-workflow"})
+    }
+  })
+
+  const onSubmit = useCallback((values: createWorkflowSchemaType) => {
+    toast.loading("Creating workflow...", { id: "create-workflow" })
+    mutate(values);
+  }, [mutate])
+
+  return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>{triggerText ?? "Create workflow"}</Button>
@@ -21,7 +51,56 @@ function CreateWorkFlowDialog({ triggerText }: ICreateWorkFlowDialogProps) {
           icon={Layers2Icon}
           title="Create Workflow"
           subtitle="Start building your workflow"
-        />        
+        />
+        <div className="p-6">
+          <Form {...form}>
+            <form className='space-y-8 w-full' onSubmit={form.handleSubmit(onSubmit)}>
+              <FormField
+                control={form.control}
+                name='name'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className='flex gap-1 items-center'>
+                      Nome
+                      <p className="text-xs text-primary">(required)</p>
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Chose a descriptive and unique name
+                    </FormDescription>
+                  </FormItem>
+                )}
+              >
+              </FormField>
+
+              <FormField
+                control={form.control}
+                name='description'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className='flex gap-1 items-center'>
+                      Description
+                      <p className="text-xs text-muted-foreground">(optional)</p>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea className='resize-none' {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Provide a brief description of the workflowdows.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              >
+              </FormField>
+              <Button type='submit' className='w-full' disabled={isPending}>
+                {!isPending && "Proceed"}
+                {isPending && <Loader2 className='animate-spin' />}
+              </Button>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   )
